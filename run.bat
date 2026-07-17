@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem  ListAgent Test Suite launcher
+rem  Agent Test Suite launcher
 rem  Runs the built release exe if present; otherwise falls back
 rem  to dev mode (cargo tauri dev).
 rem  NOTE: keep this file ASCII-only -- cmd.exe parses batch

@@ -21,7 +21,7 @@ fn http_client(timeout_secs: u64) -> Result<reqwest::Client, String> {
 }
 
 /// Only allow requests to the local machine — this app talks to the
-/// ListAgent server on 127.0.0.1 and to session URLs it hands back.
+/// agent server on 127.0.0.1 and to session URLs it hands back.
 fn ensure_loopback(url: &str) -> Result<(), String> {
     let parsed = reqwest::Url::parse(url).map_err(|e| format!("Invalid URL: {e}"))?;
     match parsed.host_str() {

@@ -1,7 +1,7 @@
-# ListAgent Test Suite (Tauri)
+# Agent Test Suite (Tauri)
 
-ListAgent prompt / tool 驗證儀表板的 Rust Tauri 桌面版,由原本的單頁 `test_case.html` 改造而來。
-A Rust Tauri desktop port of the single-page `test_case.html` testing dashboard for ListAgent.
+Agent prompt / tool 驗證儀表板的 Rust Tauri 桌面版,由原本的單頁 `test_case.html` 改造而來。
+A Rust Tauri desktop port of the single-page `test_case.html` testing dashboard for the agent server.
 
 ## 架構 / Architecture
 
@@ -28,7 +28,7 @@ All network and file I/O happens in Rust — the webview never talks to the netw
 
 | Command | 用途 / Purpose |
 |---|---|
-| `check_health(port)` | GET `/health` 檢查 ListAgent 伺服器是否在線(2 秒逾時) |
+| `check_health(port)` | GET `/health` 檢查 Agent 伺服器是否在線(2 秒逾時) |
 | `api_get(port, query)` | GET `/input?{query}`(list_agents、get_status) |
 | `api_post(port, body)` | POST `/input` 觸發 agent 執行 / trigger an agent run |
 | `fetch_url_json(url)` | 抓取 session JSON(僅允許 loopback 位址 / loopback-only) |
@@ -85,8 +85,8 @@ cargo tauri build
 
 ## 使用 / Usage
 
-1. 先啟動 `ListAgent.exe`(HTTP API 預設埠 37123,可在標題列欄位修改)。
-   Start `ListAgent.exe` first (HTTP API defaults to port 37123; changeable in the header field).
+1. 先啟動 Agent 伺服器(HTTP API 預設埠 37123,可在標題列欄位修改)。
+   Start the agent server first (HTTP API defaults to port 37123; changeable in the header field).
 2. 把 `test_case.json` 放在 exe 旁邊或 repo 根目錄會自動載入;也可以點擊/拖曳載入,或直接在 JSON 編輯器修改後 Apply。
    `test_case.json` next to the exe (or repo root in dev) auto-loads; you can also click/drag to load, or edit in the JSON editor and Apply.
 3. Run All 或單一 Run 執行測試,右側面板顯示執行細節、session 與 App logs。

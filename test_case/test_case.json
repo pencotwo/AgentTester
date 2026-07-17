@@ -2,11 +2,11 @@
   {
     "id": 1,
     "name": "基本問候測試 (Basic Greeting)",
-    "prompt": "請用繁體中文回答：『你好，我是 ListAgent！』",
+    "prompt": "請用繁體中文回答：『你好，我是 Agent！』",
     "tools": [],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "result.includes('你好') && result.includes('ListAgent')"
+    "check": "result.includes('你好') && result.includes('Agent')"
   },
   {
     "id": 2,
@@ -29,13 +29,13 @@
   {
     "id": 4,
     "name": "工具執行檢查測試 (Tool Execution Check)",
-    "prompt": "請使用 execute_command 工具執行 'cmd /c echo hello_listagent_test'，並確保它執行成功。",
+    "prompt": "請使用 execute_command 工具執行 'cmd /c echo hello_agent_test'，並確保它執行成功。",
     "tools": [
       "execute_command"
     ],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "session.exchanges.some(ex => ex.phase === 'command_output' && ex.payload.line && ex.payload.line.includes('hello_listagent_test'))"
+    "check": "session.exchanges.some(ex => ex.phase === 'command_output' && ex.payload.line && ex.payload.line.includes('hello_agent_test'))"
   },
   {
     "id": 5,
@@ -229,11 +229,11 @@
   {
     "id": 26,
     "name": "字串反轉測試 (String Reversal)",
-    "prompt": "請將字串『ListAgent』反轉，例如『ABC』變成『CBA』。請只回傳反轉後的字串。",
+    "prompt": "請將字串『Agent』反轉，例如『ABC』變成『CBA』。請只回傳反轉後的字串。",
     "tools": [],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "result.toLowerCase().includes('tnegatsil')"
+    "check": "result.toLowerCase().includes('tnega')"
   },
   {
     "id": 27,

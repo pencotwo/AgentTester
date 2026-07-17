@@ -454,6 +454,17 @@ header {
   display: block;
 }
 
+/* Every string inside the popover must be selectable/copyable,
+   overriding the app-wide `user-select: none` on <body>. */
+.detail-popover,
+.detail-popover * {
+  user-select: text;
+}
+
+.detail-popover-close {
+  user-select: none;
+}
+
 .detail-popover-header {
   display: flex;
   align-items: center;
