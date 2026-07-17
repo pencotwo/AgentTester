@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Test Suite - Prompt & Tool Verification Dashboard</title>
+  <meta name="description" content="An interactive, real-time testing dashboard to execute and verify Agent prompt outputs and tool execution correctness.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <header>
+      <div class="title-area">
+        <h1>Agent Test Suite</h1>
+        <p>Prompt & Tool verification client for Agent desktop automation</p>
+      </div>
+      <div class="connection-status" id="connection-indicator">
+        <span class="status-dot offline" id="connection-dot"></span>
+        <span id="connection-text">Agent Server: Checking...</span>
+      </div>
+    </header>
+
+    <!-- Controls / Configurations -->
+    <div class="control-card">
+      <div class="form-group" style="flex: 0 0 140px; min-width: 120px;">
+        <label for="port-input">Server Port</label>
+        <input type="number" id="port-input" class="form-input" min="1" max="65535" step="1" value="37123" title="本機 HTTP API 埠（預設 37123；FoxAgent 可於 config.json 的 http_port 變更）">
+      </div>
+      <div class="form-group">
+        <label for="agent-select">Select Agent to Test</label>
+        <select id="agent-select" class="form-select">
+          <option value="">-- Fetching agents from app... --</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" id="btn-refresh-agents">
+        <span>🔄</span> Refresh Agents
+      </button>
+      <button class="btn btn-primary" id="btn-run-all" disabled>
+        <span>▶</span> Run All Tests
+      </button>
+      <button class="btn btn-danger" id="btn-stop-all" disabled>
+        <span>■</span> Stop
+      </button>
+    </div>
+
+    <!-- Left column: Test cases list -->
+    <div class="main-panel">
+      <div class="panel-header">
+        <h2>Test Cases</h2>
+        <span class="test-status-badge status-idle" id="summary-badge">READY</span>
+      </div>
+
+      <div class="stats-summary-card">
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="test-progress-bar"></div>
+        </div>
+        <div class="stats-summary">
+          <div class="stat-box">
+            <div class="stat-number" id="stat-total">0</div>
+            <div class="stat-label">Total</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number" id="stat-passed" style="color:var(--success)">0</div>
+            <div class="stat-label">Passed</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number" id="stat-failed" style="color:var(--error)">0</div>
+            <div class="stat-label">Failed</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number" id="stat-pending" style="color:var(--warning)">0</div>
+            <div class="stat-label">Pending</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="test-list" id="test-cases-list">
+        <!-- Dynamically rendered test cases -->
+        <div style="color:var(--text-muted); text-align:center; padding: 40px 0;">
+          <p>Please load your <strong>test_case.json</strong> to get started.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column: Test detail & JSON Editor -->
+    <div class="sidebar-panel">
+      <div class="sidebar-card">
+        <div class="sidebar-card-header">
+          <h3><span>📝</span> JSON Config</h3>
+          <button class="btn btn-secondary btn-icon-small" id="btn-refresh-config" title="重新載入設定檔">
+            <span>🔄</span> Refresh
+          </button>
+        </div>
+        <div class="config-file-path" id="config-file-path" title="">尚未載入檔案</div>
+        <div class="file-dropzone" id="dropzone">
+          <span>📂</span>
+          <p>Click to select or drag test_case.json here</p>
+        </div>
+        <textarea class="json-editor-textarea" id="json-editor" placeholder="[{ 'name': 'Test', 'prompt': '...', 'check': '...' }]"></textarea>
+        <button class="btn btn-secondary" id="btn-editor-apply" style="width: 100%; margin-top: 12px;">
+          Apply JSON Changes
+        </button>
+        <button class="btn btn-primary" id="btn-editor-save" style="width: 100%; margin-top: 8px;">
+          💾 儲存設定檔 (test_case.json)
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Floating detail popover: positioned next to whichever test-item is selected -->
+  <div id="test-detail-backdrop" class="detail-popover-backdrop"></div>
+  <div id="test-detail-popover" class="detail-popover">
+    <div class="detail-popover-header">
+      <h3><span>🔍</span> Test Execution Detail</h3>
+      <button class="detail-popover-close" id="btn-detail-close" title="Close" aria-label="Close">✕</button>
+    </div>
+    <div id="test-detail-placeholder" style="color:var(--text-muted); text-align:center; padding: 20px 0;">
+      Select a test case to view execution detail & logs.
+    </div>
+    <div id="test-detail-content" class="detail-container" style="display: none;">
+      <div class="detail-section">
+        <div class="detail-label">Test Case</div>
+        <div class="detail-value" id="detail-case-name" style="font-weight: 600;">-</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">Prompt</div>
+        <div class="detail-value" id="detail-case-prompt">-</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">Required Tools</div>
+        <div class="detail-value mono" id="detail-case-tools">-</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">Model Override</div>
+        <div class="detail-value mono" id="detail-case-model">-</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">Request URL (GET Equivalent)</div>
+        <div class="detail-value" style="word-break: break-all;">
+          <a id="detail-case-url" class="detail-link mono">-</a>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">Execution ID & Status</div>
+        <div class="detail-value" id="detail-case-status">-</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">Agent Response (Preview)</div>
+        <div class="detail-value mono" id="detail-case-output">No response received yet.</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">Verification Condition</div>
+        <div class="detail-value mono" id="detail-case-check">-</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-label">Assertion Status</div>
+        <div class="detail-value" id="detail-case-assert">-</div>
+      </div>
+      <div class="detail-section" id="detail-session-sec" style="display:none;">
+        <div class="detail-label">Execution Session</div>
+        <div class="detail-value">
+          <a id="detail-session-link" class="detail-link">📄 View full session JSON</a>
+        </div>
+      </div>
+      <div class="detail-section" id="detail-logs-sec" style="display:none;">
+        <div class="detail-label">App Logs</div>
+        <div class="detail-log-list" id="detail-logs-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
