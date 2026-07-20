@@ -1,6 +1,10 @@
 # === Rust / Tauri build output ===
 /src-tauri/target/
 /src-tauri/gen/
+# build_exe.bat copies the release exe here after building
+/agent-tester.exe
+# saved test-run output from the "儲存結果" card (generated, not source)
+/result/
 
 # Cargo.lock 建議提交(此為應用程式,鎖定相依版本可確保建置一致)。
 # 若你偏好不追蹤,取消下行註解 / uncomment to ignore Cargo.lock:

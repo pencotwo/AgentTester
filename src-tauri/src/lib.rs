@@ -91,20 +91,20 @@ async fn fetch_url_json(url: String) -> Result<Value, String> {
     res.json::<Value>().await.map_err(|e| e.to_string())
 }
 
-/// Candidate locations for test_case.json: next to the executable,
+/// Candidate locations for a well-known config file: next to the executable,
 /// the working directory, and its parent (covers `cargo tauri dev`,
 /// where the cwd is src-tauri/ and the file lives in the repo root).
-fn default_test_case_paths() -> Vec<PathBuf> {
+fn default_config_paths(filename: &str) -> Vec<PathBuf> {
     let mut paths = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            paths.push(dir.join("test_case.json"));
+            paths.push(dir.join(filename));
         }
     }
     if let Ok(cwd) = std::env::current_dir() {
-        paths.push(cwd.join("test_case.json"));
+        paths.push(cwd.join(filename));
         if let Some(parent) = cwd.parent() {
-            paths.push(parent.join("test_case.json"));
+            paths.push(parent.join(filename));
         }
     }
     paths
@@ -128,7 +128,7 @@ fn read_text_file(path: String) -> Result<LoadedFile, String> {
 
 #[tauri::command]
 fn load_default_test_cases() -> Result<LoadedFile, String> {
-    for path in default_test_case_paths() {
+    for path in default_config_paths("test_case.json") {
         if path.is_file() {
             let content = std::fs::read_to_string(&path)
                 .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
@@ -139,6 +139,39 @@ fn load_default_test_cases() -> Result<LoadedFile, String> {
         }
     }
     Err("test_case.json not found".into())
+}
+
+/// Load the Model List sidecar file (model_list.json). Unlike test_case.json
+/// this file is fully app-managed — no open/save dialogs, just silent
+/// auto-load/auto-save next to the executable.
+#[tauri::command]
+fn load_default_model_list() -> Result<LoadedFile, String> {
+    for path in default_config_paths("model_list.json") {
+        if path.is_file() {
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+            return Ok(LoadedFile {
+                path: path.display().to_string(),
+                content,
+            });
+        }
+    }
+    Err("model_list.json not found".into())
+}
+
+/// Silently persist the Model List to a fixed location next to the
+/// executable (no dialog — called after every add/delete/edit/reorder/
+/// checkbox toggle, so a dialog every time would be unusable).
+#[tauri::command]
+fn save_model_list(content: String) -> Result<String, String> {
+    let dir = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+        .or_else(|| std::env::current_dir().ok())
+        .ok_or("Unable to resolve a directory to save model_list.json")?;
+    let path = dir.join("model_list.json");
+    std::fs::write(&path, content).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
+    Ok(path.display().to_string())
 }
 
 /// Native "open file" dialog; returns the file content + path, or None if cancelled.
@@ -183,6 +216,100 @@ async fn save_test_case_dialog(app: tauri::AppHandle, content: String) -> Result
     }
 }
 
+/// Native "save file" dialog for test *results* (separate default file
+/// name / dialog title from the config-file save so users don't confuse
+/// the two).
+#[tauri::command]
+async fn save_test_result_dialog(
+    app: tauri::AppHandle,
+    content: String,
+    default_name: String,
+) -> Result<Option<String>, String> {
+    let picked = app
+        .dialog()
+        .file()
+        .add_filter("JSON", &["json"])
+        .set_file_name(&default_name)
+        .blocking_save_file();
+    match picked {
+        Some(file) => {
+            let path = file.into_path().map_err(|e| e.to_string())?;
+            std::fs::write(&path, content)
+                .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
+            Ok(Some(path.display().to_string()))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Native "open file" dialog for a previously saved test-result JSON file.
+#[tauri::command]
+async fn open_test_result_dialog(app: tauri::AppHandle) -> Result<Option<LoadedFile>, String> {
+    let picked = app
+        .dialog()
+        .file()
+        .add_filter("JSON", &["json"])
+        .blocking_pick_file();
+    match picked {
+        Some(file) => {
+            let path = file.into_path().map_err(|e| e.to_string())?;
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+            Ok(Some(LoadedFile {
+                path: path.display().to_string(),
+                content,
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Build an `lms` invocation. On Windows, suppress the console window that
+/// would otherwise flash briefly since this is a GUI app spawning a CLI tool.
+fn lms_command(args: &[&str]) -> std::process::Command {
+    let mut cmd = std::process::Command::new("lms");
+    cmd.args(args);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
+/// `lms load <name> --yes` — used by the Model List card's "自動切換 LM
+/// Studio Model" toggle to load a model before running its batch of tests.
+/// `--yes` skips the interactive context-length/GPU-offload prompt.
+#[tauri::command]
+fn lms_load_model(name: String) -> Result<String, String> {
+    let output = lms_command(&["load", &name, "--yes"]).output().map_err(|e| {
+        format!("無法執行 lms load（請確認 LM Studio CLI 已安裝並在 PATH 中）：{e}")
+    })?;
+    if !output.status.success() {
+        return Err(format!(
+            "lms load {name} 失敗：{}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+/// `lms unload <name>` — called after a model's batch of tests finishes.
+#[tauri::command]
+fn lms_unload_model(name: String) -> Result<String, String> {
+    let output = lms_command(&["unload", &name])
+        .output()
+        .map_err(|e| format!("無法執行 lms unload：{e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "lms unload {name} 失敗：{}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
 /// Open a URL in the system default browser (session JSON links, etc.).
 #[tauri::command]
 fn open_in_browser(app: tauri::AppHandle, url: String) -> Result<(), String> {
@@ -206,8 +333,14 @@ pub fn run() {
             fetch_url_json,
             read_text_file,
             load_default_test_cases,
+            load_default_model_list,
+            save_model_list,
             open_test_case_dialog,
             save_test_case_dialog,
+            save_test_result_dialog,
+            open_test_result_dialog,
+            lms_load_model,
+            lms_unload_model,
             open_in_browser
         ])
         .run(tauri::generate_context!())

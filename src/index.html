@@ -106,6 +106,41 @@
         </button>
       </div>
 
+      <div class="sidebar-card">
+        <div class="sidebar-card-header">
+          <h3><span>🧩</span> Model List</h3>
+          <button class="btn btn-secondary btn-icon-small" id="btn-model-add" title="新增 Model">
+            <span>➕</span> 新增
+          </button>
+        </div>
+        <p style="color:var(--text-muted); font-size:12px; margin: -8px 0 12px;">
+          勾選的 Model 會在 Run / Run All Tests 時覆蓋 test case 的 model 設定；未勾選任何 Model 時沿用各 test case 原本的設定。
+        </p>
+        <div class="model-list" id="model-list">
+          <div style="color:var(--text-muted); text-align:center; padding: 12px 0;" id="model-list-empty">
+            尚未新增任何 Model。
+          </div>
+        </div>
+        <label class="lm-switch-toggle">
+          <input type="checkbox" id="chk-auto-switch-lm">
+          自動切換 LM Studio Model（測試前 <code>lms load</code>，測完 <code>lms unload</code>）
+        </label>
+        <div class="lm-switch-status" id="lm-switch-status"></div>
+      </div>
+
+      <div class="sidebar-card">
+        <div class="sidebar-card-header">
+          <h3><span>📊</span> 儲存結果</h3>
+        </div>
+        <div class="config-file-path" id="result-file-path" title="">尚未儲存/開啟結果檔</div>
+        <button class="btn btn-primary" id="btn-result-save" style="width: 100%;">
+          💾 儲存
+        </button>
+        <button class="btn btn-secondary" id="btn-result-open" style="width: 100%; margin-top: 8px;">
+          📂 開啟
+        </button>
+      </div>
+
     </div>
   </div>
 
@@ -167,6 +202,10 @@
       <div class="detail-section" id="detail-logs-sec" style="display:none;">
         <div class="detail-label">App Logs</div>
         <div class="detail-log-list" id="detail-logs-list"></div>
+      </div>
+      <div class="detail-section" id="detail-models-sec" style="display:none;">
+        <div class="detail-label">Per-Model Results</div>
+        <div class="detail-model-results" id="detail-model-results"></div>
       </div>
     </div>
   </div>

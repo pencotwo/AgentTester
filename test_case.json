@@ -6,7 +6,7 @@
     "tools": [],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "result.includes('你好') && result.includes('Agent')"
+    "check": "/你好|您好/.test(result) && /agent/i.test(result)"
   },
   {
     "id": 2,
@@ -24,7 +24,7 @@
     "tools": [],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "result.includes('蘋果') && result.includes('香蕉')"
+    "check": "(result.includes('蘋果') || result.includes('苹果')) && result.includes('香蕉')"
   },
   {
     "id": 4,
@@ -161,7 +161,7 @@
     "tools": [],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "result.includes('秋') && result.includes('葉') && result.length >= 10"
+    "check": "/秋/.test(result) && /葉|叶/.test(result) && result.length >= 10"
   },
   {
     "id": 19,
@@ -188,7 +188,7 @@
     "tools": [],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "result.includes('後退') || result.includes('退後')"
+    "check": "result.includes('後退') || result.includes('退後') || result.includes('后退') || result.includes('退后')"
   },
   {
     "id": 22,
@@ -238,13 +238,13 @@
   {
     "id": 27,
     "name": "檔案讀取工具測試 (Tool Read File)",
-    "prompt": "請讀取 'test/test_case.json' 前面幾行的檔案內容。",
+    "prompt": "請讀取 'test/notes.txt' 前面幾行的檔案內容。",
     "tools": [
       "read_file"
     ],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool_call' && ex.payload.name === 'read_file')"
+    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'read_file')"
   },
   {
     "id": 28,
@@ -256,7 +256,7 @@
     ],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool_call' && (ex.payload.name === 'list_dir' || ex.payload.name === 'list_directory'))"
+    "check": "session.exchanges.some(ex => ex.phase === 'tool' && (ex.payload.name === 'list_dir' || ex.payload.name === 'list_directory'))"
   },
   {
     "id": 29,
@@ -269,6 +269,6 @@
     ],
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool_call' && ex.payload.name === 'grep_search')"
+    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'grep_search')"
   }
 ]

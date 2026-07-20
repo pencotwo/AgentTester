@@ -1,0 +1,12 @@
+[
+  {
+    "id": "m_mrpoc425_ysf6",
+    "name": "qwen2.5-coder-3b-instruct",
+    "checked": false
+  },
+  {
+    "id": "m_mrpog0xj_brjm",
+    "name": "google/gemma-4-e4b",
+    "checked": true
+  }
+]

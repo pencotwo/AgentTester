@@ -9,6 +9,7 @@ const PORT_STORAGE_KEY = 'agent_test_port';
 const CASES_STORAGE_KEY = 'agent_test_cases';   // last applied test-case JSON
 const FILE_PATH_STORAGE_KEY = 'agent_test_cases_path'; // full path of the last loaded file
 const AGENT_STORAGE_KEY = 'agent_test_agent';   // last selected agent id
+const AUTO_SWITCH_LM_KEY = 'agent_test_auto_switch_lm';
 let apiPort = parseInt(localStorage.getItem(PORT_STORAGE_KEY), 10);
 if (!(apiPort >= 1 && apiPort <= 65535)) apiPort = DEFAULT_PORT;
 function apiBase() { return `http://127.0.0.1:${apiPort}`; }
@@ -27,6 +28,16 @@ let isRunningAll = false;
 let stopRequested = false;
 let isServerOnline = false;
 let currentFilePath = null; // full path of the currently loaded config file, if known
+let modelList = []; // [{ id, name, checked }] — see Model List card
+let draggedModelIndex = null;
+let autoSwitchLmStudio = localStorage.getItem(AUTO_SWITCH_LM_KEY) === 'true';
+
+// Key used in tc.modelResults when a run didn't override the model
+// (i.e. no Model List entry was checked, so the test case's own `model`
+// field — or the agent's default — was used).
+const MODEL_DEFAULT_KEY = '__default__';
+function modelKeyFor(modelOverride) { return modelOverride || MODEL_DEFAULT_KEY; }
+function modelLabelFor(key) { return key === MODEL_DEFAULT_KEY ? '(Test Case 預設 Model)' : key; }
 
 // DOM Elements
 const portInput = document.getElementById('port-input');
@@ -41,6 +52,14 @@ const btnEditorSave = document.getElementById('btn-editor-save');
 const btnRefreshConfig = document.getElementById('btn-refresh-config');
 const configFilePath = document.getElementById('config-file-path');
 const dropzone = document.getElementById('dropzone');
+const btnResultSave = document.getElementById('btn-result-save');
+const btnResultOpen = document.getElementById('btn-result-open');
+const resultFilePath = document.getElementById('result-file-path');
+const modelListEl = document.getElementById('model-list');
+const modelListEmpty = document.getElementById('model-list-empty');
+const btnModelAdd = document.getElementById('btn-model-add');
+const chkAutoSwitchLm = document.getElementById('chk-auto-switch-lm');
+const lmSwitchStatus = document.getElementById('lm-switch-status');
 const connectionDot = document.getElementById('connection-dot');
 const connectionText = document.getElementById('connection-text');
 
@@ -71,6 +90,8 @@ const detailSessionSec = document.getElementById('detail-session-sec');
 const detailSessionLink = document.getElementById('detail-session-link');
 const detailLogsSec = document.getElementById('detail-logs-sec');
 const detailLogsList = document.getElementById('detail-logs-list');
+const detailModelsSec = document.getElementById('detail-models-sec');
+const detailModelResults = document.getElementById('detail-model-results');
 
 // Init
 window.addEventListener('DOMContentLoaded', () => {
@@ -92,6 +113,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Try automatic load from disk first (test_case.json next to the app)
   autoLoadTestCases();
+  loadModelList();
 
   // Setup Listeners
   btnRefreshAgents.addEventListener('click', fetchAgents);
@@ -100,11 +122,18 @@ window.addEventListener('DOMContentLoaded', () => {
     stopRequested = true;
     btnStopAll.disabled = true;
     btnStopAll.innerHTML = '<span>■</span> Stopping...';
-    onTestFinished();
   });
   btnEditorApply.addEventListener('click', applyEditorJson);
   btnEditorSave.addEventListener('click', saveJsonToFile);
   btnRefreshConfig.addEventListener('click', refreshConfigFile);
+  btnResultSave.addEventListener('click', saveTestResults);
+  btnResultOpen.addEventListener('click', openTestResults);
+  btnModelAdd.addEventListener('click', addModel);
+  chkAutoSwitchLm.checked = autoSwitchLmStudio;
+  chkAutoSwitchLm.addEventListener('change', () => {
+    autoSwitchLmStudio = chkAutoSwitchLm.checked;
+    try { localStorage.setItem(AUTO_SWITCH_LM_KEY, String(autoSwitchLmStudio)); } catch (_) {}
+  });
   agentSelect.addEventListener('change', () => {
     if (agentSelect.value) {
       try { localStorage.setItem(AGENT_STORAGE_KEY, agentSelect.value); } catch (_) {}
@@ -344,6 +373,242 @@ async function saveJsonToFile() {
   }
 }
 
+// Save the current test *results* (status/output/session/logs for every
+// loaded case) to a JSON file, separate from the test_case.json config.
+async function saveTestResults() {
+  if (testCases.length === 0) {
+    alert('No test cases loaded — nothing to save.');
+    return;
+  }
+  const payload = {
+    savedAt: new Date().toISOString(),
+    results: testCases.map(tc => ({
+      id: tc.id,
+      name: tc.name,
+      status: tc.status,
+      resultText: tc.resultText,
+      execId: tc.execId,
+      errorMsg: tc.errorMsg,
+      check: tc.check,
+      sessionData: tc.sessionData,
+      logs: tc.logs,
+      modelResults: tc.modelResults || {}
+    }))
+  };
+  const content = JSON.stringify(payload, null, 2);
+  const stamp = payload.savedAt.replace(/[:.]/g, '-');
+  try {
+    const savedPath = await invoke('save_test_result_dialog', {
+      content,
+      defaultName: `test_result_${stamp}.json`
+    });
+    if (savedPath) {
+      resultFilePath.innerText = savedPath;
+      resultFilePath.title = savedPath;
+    }
+  } catch (err) {
+    alert('Failed to save results: ' + err);
+  }
+}
+
+// Open a previously saved results file and merge it back into the
+// currently loaded test cases (matched by id).
+async function openTestResults() {
+  try {
+    const file = await invoke('open_test_result_dialog');
+    if (file === null || file === undefined) return; // user cancelled
+
+    const payload = JSON.parse(file.content);
+    const results = Array.isArray(payload) ? payload : (payload.results || []);
+    if (testCases.length === 0) {
+      alert('Load a test_case.json first so results can be matched against it.');
+      return;
+    }
+
+    const byId = new Map(results.map(r => [r.id, r]));
+    testCases.forEach(tc => {
+      const r = byId.get(tc.id);
+      if (!r) return;
+      tc.status = r.status || 'idle';
+      tc.resultText = r.resultText || '';
+      tc.execId = r.execId || '';
+      tc.errorMsg = r.errorMsg || '';
+      tc.sessionData = r.sessionData || null;
+      tc.logs = r.logs || [];
+      tc.modelResults = r.modelResults || {};
+    });
+
+    renderTestCasesList();
+    updateStats();
+    if (currentSelectedCaseIndex !== null) selectTestCase(currentSelectedCaseIndex);
+
+    resultFilePath.innerText = file.path;
+    resultFilePath.title = file.path;
+  } catch (err) {
+    alert('Failed to open results: ' + err);
+  }
+}
+
+// ---------------------------------------------------------------------
+// Model List card — add/delete/edit/reorder/check a list of model names.
+// Checked models override each test case's `model` field when running.
+// Fully app-managed: auto-loaded/auto-saved to model_list.json next to
+// the executable, no open/save dialogs.
+// ---------------------------------------------------------------------
+
+async function loadModelList() {
+  try {
+    const file = await invoke('load_default_model_list');
+    const parsed = JSON.parse(file.content);
+    if (Array.isArray(parsed)) modelList = parsed;
+  } catch (e) {
+    console.log('No model_list.json found yet, starting with an empty Model List.', e);
+  }
+  renderModelList();
+}
+
+function persistModelList() {
+  invoke('save_model_list', { content: JSON.stringify(modelList, null, 2) })
+    .catch(err => console.error('Failed to save model_list.json', err));
+}
+
+function getCheckedModels() {
+  return modelList.filter(m => m.checked).map(m => m.name);
+}
+
+function addModel() {
+  const name = prompt('新增 Model 名稱（需與 Agent 端可用的 Model 名稱一致）：');
+  if (!name || !name.trim()) return;
+  modelList.push({
+    id: 'm_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+    name: name.trim(),
+    checked: true
+  });
+  renderModelList();
+  persistModelList();
+}
+
+function editModel(idx) {
+  const current = modelList[idx];
+  const name = prompt('編輯 Model 名稱：', current.name);
+  if (!name || !name.trim()) return;
+  current.name = name.trim();
+  renderModelList();
+  persistModelList();
+}
+
+function deleteModel(idx) {
+  const current = modelList[idx];
+  if (!confirm(`刪除 Model「${current.name}」？`)) return;
+  modelList.splice(idx, 1);
+  renderModelList();
+  persistModelList();
+}
+
+function renderModelList() {
+  modelListEl.querySelectorAll('.model-item').forEach(el => el.remove());
+  modelListEmpty.style.display = modelList.length === 0 ? 'block' : 'none';
+
+  modelList.forEach((m, idx) => {
+    const item = document.createElement('div');
+    item.className = 'model-item';
+    item.draggable = true;
+    item.dataset.index = idx;
+    item.innerHTML = `
+      <span class="model-drag-handle">⠿</span>
+      <input type="checkbox" class="model-checkbox" ${m.checked ? 'checked' : ''}>
+      <span class="model-name">${escapeHtml(m.name)}</span>
+      <div class="model-item-actions">
+        <button class="btn-model-edit" title="編輯">✎</button>
+        <button class="btn-model-delete" title="刪除">🗑</button>
+      </div>
+    `;
+
+    item.querySelector('.model-checkbox').addEventListener('change', (e) => {
+      m.checked = e.target.checked;
+      persistModelList();
+    });
+    item.querySelector('.btn-model-edit').addEventListener('click', () => editModel(idx));
+    item.querySelector('.btn-model-delete').addEventListener('click', () => deleteModel(idx));
+
+    item.addEventListener('dragstart', () => {
+      draggedModelIndex = idx;
+      item.classList.add('dragging');
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      draggedModelIndex = null;
+    });
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drag-over');
+    });
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      item.classList.remove('drag-over');
+      if (draggedModelIndex === null || draggedModelIndex === idx) return;
+      const [moved] = modelList.splice(draggedModelIndex, 1);
+      modelList.splice(idx, 0, moved);
+      renderModelList();
+      persistModelList();
+    });
+
+    modelListEl.appendChild(item);
+  });
+}
+
+// Load `modelName` into LM Studio via `lms load --yes`. Returns true on
+// success; on failure it alerts (a wrong/no model would silently skew
+// every test result for this batch, so it's worth interrupting for).
+async function lmStudioLoad(modelName) {
+  lmSwitchStatus.textContent = `🔄 Loading "${modelName}" in LM Studio...`;
+  try {
+    await invoke('lms_load_model', { name: modelName });
+    lmSwitchStatus.textContent = `✅ Loaded "${modelName}"`;
+    return true;
+  } catch (err) {
+    lmSwitchStatus.textContent = `❌ Failed to load "${modelName}": ${err}`;
+    alert(`LM Studio 載入 model「${modelName}」失敗，這個 model 的測試將略過：\n${err}`);
+    return false;
+  }
+}
+
+// Unload `modelName` via `lms unload`. Best-effort — failures are logged
+// but don't interrupt the run (the tests for this model already finished).
+async function lmStudioUnload(modelName) {
+  lmSwitchStatus.textContent = `🔄 Unloading "${modelName}" in LM Studio...`;
+  try {
+    await invoke('lms_unload_model', { name: modelName });
+    lmSwitchStatus.textContent = `✅ Unloaded "${modelName}"`;
+  } catch (err) {
+    lmSwitchStatus.textContent = `❌ Failed to unload "${modelName}": ${err}`;
+    console.error('lms unload failed', err);
+  }
+}
+
+// Run `work()` wrapped in an LM Studio load/unload cycle for `model`, when
+// the "自動切換 LM Studio Model" checkbox is on and a real model override
+// is in play (the no-override/"use test case's own model" case has no
+// single model to switch to, so it's skipped). If loading fails, `work()`
+// is skipped entirely so the resulting FAILED status reflects a load
+// problem rather than being tested against the wrong (or no) model.
+async function withLmStudioModel(model, work) {
+  if (!autoSwitchLmStudio || !model) {
+    await work();
+    return;
+  }
+  const loaded = await lmStudioLoad(model);
+  if (!loaded) return;
+  try {
+    await work();
+  } finally {
+    await lmStudioUnload(model);
+  }
+}
+
 // Setup loaded test cases
 function initializeTestCases() {
   // Remember the applied config so a restart restores it.
@@ -361,7 +626,8 @@ function initializeTestCases() {
     sessionData: null,
     execId: '',
     logs: [],
-    errorMsg: ''
+    errorMsg: '',
+    modelResults: {} // per-model breakdown; see recomputeAggregate()
   }));
 
   updateStats();
@@ -500,6 +766,37 @@ function getFullResultText(tc) {
   return tc.resultText;
 }
 
+// Derive a test case's aggregate status/output fields (used by the list
+// row badge and the top of the detail popover) from its per-model results.
+// Aggregate rule: RUNNING if any model is still running, else FAILED if
+// any model failed, else PASSED only if every run model passed.
+function recomputeAggregate(tc) {
+  const entries = Object.values(tc.modelResults || {});
+  if (entries.length === 0) {
+    tc.status = 'idle';
+    tc.resultText = '';
+    tc.sessionData = null;
+    tc.execId = '';
+    tc.logs = [];
+    tc.errorMsg = '';
+    return;
+  }
+  if (entries.some(e => e.status === 'running')) tc.status = 'running';
+  else if (entries.some(e => e.status === 'error')) tc.status = 'error';
+  else if (entries.every(e => e.status === 'success')) tc.status = 'success';
+  else tc.status = 'idle';
+
+  // Mirror the most recently updated entry into the flat fields that the
+  // list/detail views already read, so a single-model run behaves exactly
+  // like before.
+  const latest = entries[entries.length - 1];
+  tc.resultText = latest.resultText;
+  tc.sessionData = latest.sessionData;
+  tc.execId = latest.execId;
+  tc.logs = latest.logs;
+  tc.errorMsg = latest.errorMsg;
+}
+
 // Close the floating detail popover and clear the selection highlight.
 function closeDetailPopover() {
   currentSelectedCaseIndex = null;
@@ -621,39 +918,96 @@ function selectTestCase(idx) {
     detailLogsSec.style.display = 'none';
   }
 
+  // Per-Model Results (only meaningful once at least one model has run)
+  const modelEntries = Object.entries(tc.modelResults || {});
+  if (modelEntries.length > 0) {
+    detailModelsSec.style.display = 'block';
+    detailModelResults.innerHTML = '';
+    modelEntries.forEach(([key, entry]) => {
+      let statusColor = 'var(--text-muted)';
+      if (entry.status === 'success') statusColor = 'var(--success)';
+      else if (entry.status === 'error') statusColor = 'var(--error)';
+      else if (entry.status === 'running') statusColor = 'var(--info)';
+      const preview = getFullResultText(entry) || '(no output)';
+      const row = document.createElement('div');
+      row.className = 'detail-model-row';
+      row.innerHTML = `
+        <div class="detail-model-row-header">
+          <span class="detail-model-name">${escapeHtml(modelLabelFor(key))}</span>
+          <span style="color:${statusColor}; font-weight:600;">${escapeHtml(entry.status.toUpperCase())}</span>
+        </div>
+        <div class="detail-model-row-body">${escapeHtml(preview)}</div>
+      `;
+      detailModelResults.appendChild(row);
+    });
+  } else {
+    detailModelsSec.style.display = 'none';
+  }
+
   // Anchor next to the selected row now that content is populated
   // (accurate popover size needed for edge-flip/clamp math).
   const itemEl = testCasesList.querySelector(`.test-item[data-index="${idx}"]`);
   positionDetailPopover(itemEl);
 }
 
-// Run a single test case
+// Run a single test case's row "▶ Run" button: executes once per checked
+// Model List entry (in list order), sequentially; falls back to the test
+// case's own `model` field when no Model List entry is checked.
 async function runSingleTest(idx) {
+  const models = getCheckedModels();
+  const modelSeq = models.length > 0 ? models : [null];
+  const tc = testCases[idx];
+  if (!tc.modelResults) tc.modelResults = {};
+  modelSeq.forEach(m => { delete tc.modelResults[modelKeyFor(m)]; });
+  recomputeAggregate(tc);
+  renderTestCasesList();
+  updateStats();
+  if (currentSelectedCaseIndex === idx) selectTestCase(idx);
+
+  for (const model of modelSeq) {
+    await withLmStudioModel(model, () => executeTestCaseForModel(idx, model));
+  }
+}
+
+// Execute test case `idx` once, overriding its `model` field with
+// `modelOverride` (or falling back to the test case's own setting when
+// null). Stores the outcome under tc.modelResults[key] and resolves once
+// the run has fully finished (or failed to start).
+async function executeTestCaseForModel(idx, modelOverride) {
+  const tc = testCases[idx];
+  const key = modelKeyFor(modelOverride);
+  if (!tc.modelResults) tc.modelResults = {};
+  const entry = { model: key, status: 'running', resultText: '', sessionData: null, execId: '', logs: [], errorMsg: '' };
+  tc.modelResults[key] = entry;
+  recomputeAggregate(tc);
+  renderTestCasesList();
+  updateStats();
+  if (currentSelectedCaseIndex === idx) selectTestCase(idx);
+
   if (!isServerOnline) {
-    alert('Server is offline. Start Agent.exe first!');
-    onTestFinished();
+    entry.status = 'error';
+    entry.errorMsg = 'Server is offline. Start Agent.exe first!';
+    entry.resultText = entry.errorMsg;
+    recomputeAggregate(tc);
+    renderTestCasesList();
+    updateStats();
+    if (currentSelectedCaseIndex === idx) selectTestCase(idx);
     return;
   }
   const agentId = agentSelect.value;
   if (!agentId) {
-    alert('Please select an Agent first.');
-    onTestFinished();
+    entry.status = 'error';
+    entry.errorMsg = 'Please select an Agent first.';
+    entry.resultText = entry.errorMsg;
+    recomputeAggregate(tc);
+    renderTestCasesList();
+    updateStats();
+    if (currentSelectedCaseIndex === idx) selectTestCase(idx);
     return;
   }
 
-  const tc = testCases[idx];
-  tc.status = 'running';
-  tc.resultText = '';
-  tc.sessionData = null;
-  tc.logs = [];
-  tc.errorMsg = '';
-
   const execId = 'tc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
-  tc.execId = execId;
-
-  renderTestCasesList();
-  updateStats();
-  if (currentSelectedCaseIndex === idx) selectTestCase(idx);
+  entry.execId = execId;
 
   try {
     // Send POST input run request (via Rust)
@@ -662,7 +1016,7 @@ async function runSingleTest(idx) {
       action: 'run',
       exec_id: execId,
       tools: tc.tools || [],
-      model: tc.model || '',
+      model: modelOverride || tc.model || '',
       parameters: {
         message: tc.prompt
       }
@@ -676,114 +1030,122 @@ async function runSingleTest(idx) {
       body: requestBody
     });
 
-    // Start polling for completion
-    pollTestStatus(idx, agentId, execId);
+    await pollUntilFinished(idx, key, agentId, execId);
   } catch (err) {
-    tc.status = 'error';
-    tc.errorMsg = String(err);
-    tc.resultText = `Failed to trigger execution: ${err}`;
+    entry.status = 'error';
+    entry.errorMsg = String(err);
+    entry.resultText = `Failed to trigger execution: ${err}`;
+    recomputeAggregate(tc);
     renderTestCasesList();
     updateStats();
     if (currentSelectedCaseIndex === idx) selectTestCase(idx);
-    onTestFinished();
   }
 }
 
-// Poll status of executing agent
-function pollTestStatus(idx, agentId, execId) {
+// Poll status of executing agent until this exec_id finishes; resolves
+// once the result (and assertion check) has been recorded.
+function pollUntilFinished(idx, modelKey, agentId, execId) {
   const tc = testCases[idx];
+  const entry = tc.modelResults[modelKey];
   const maxAttempts = 120; // 2 minutes timeout
-  let attempts = 0;
 
-  const interval = setInterval(async () => {
-    attempts++;
-    if (attempts > maxAttempts) {
-      clearInterval(interval);
-      tc.status = 'error';
-      tc.errorMsg = 'Timeout: Agent execution exceeded 2 minutes';
-      tc.resultText = 'Polling timeout.';
-      renderTestCasesList();
-      updateStats();
-      if (currentSelectedCaseIndex === idx) selectTestCase(idx);
-      onTestFinished();
-      return;
-    }
-
-    try {
-      const statusData = await invoke('api_get', {
-        port: apiPort,
-        query: `action=get_status&agent_id=${encodeURIComponent(agentId)}`
-      });
-      const detail = statusData.detail || {};
-
-      // Check if finished
-      const isFinished = !statusData.running && detail.lastExecId === execId;
-      const isCurrentlyRunning = statusData.running && detail.currentExecId === execId;
-
-      if (isCurrentlyRunning) {
-        tc.status = 'running';
-        // Update live output preview if any
-        if (detail.currentRound) {
-          tc.resultText = `Running... Round ${detail.currentRound}. Tokens: ${detail.currentTokens || 0}`;
-          if (currentSelectedCaseIndex === idx) {
-            detailCaseOutput.innerText = tc.resultText;
-          }
-        }
-      }
-
-      if (isFinished) {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
         clearInterval(interval);
-
-        // Gather result details
-        tc.resultText = detail.lastContentPreview || '';
-        const isSuccessRun = detail.lastSuccess !== false;
-
-        // Store session metadata
-        tc.sessionData = {
-          lastSessionUrl: detail.lastSessionUrl,
-          lastSessionPath: detail.lastSessionPath,
-          lastTokens: detail.lastTokens,
-          lastRounds: detail.lastRounds
-        };
-
-        // Attempt to load full session file to get exchanges & logs
-        if (detail.lastSessionUrl) {
-          try {
-            const fullSession = await invoke('fetch_url_json', {
-              url: resolveServerUrl(detail.lastSessionUrl)
-            });
-            tc.sessionData = fullSession;
-            tc.logs = fullSession.logs || [];
-          } catch (e) {
-            console.error('Failed to load session details', e);
-          }
-        }
-
-        // If the agent execution itself failed
-        if (!isSuccessRun) {
-          tc.status = 'error';
-          tc.errorMsg = 'Agent aborted or run execution failed internally';
-        } else {
-          // Run the assertion check
-          verifyCheckExpression(idx);
-        }
-
+        entry.status = 'error';
+        entry.errorMsg = 'Timeout: Agent execution exceeded 2 minutes';
+        entry.resultText = 'Polling timeout.';
+        recomputeAggregate(tc);
         renderTestCasesList();
         updateStats();
         if (currentSelectedCaseIndex === idx) selectTestCase(idx);
-        onTestFinished();
+        resolve();
+        return;
       }
-    } catch (err) {
-      console.error('Polling error', err);
-    }
-  }, 1000);
+
+      try {
+        const statusData = await invoke('api_get', {
+          port: apiPort,
+          query: `action=get_status&agent_id=${encodeURIComponent(agentId)}`
+        });
+        const detail = statusData.detail || {};
+
+        // Check if finished
+        const isFinished = !statusData.running && detail.lastExecId === execId;
+        const isCurrentlyRunning = statusData.running && detail.currentExecId === execId;
+
+        if (isCurrentlyRunning) {
+          entry.status = 'running';
+          // Update live output preview if any
+          if (detail.currentRound) {
+            entry.resultText = `Running... Round ${detail.currentRound}. Tokens: ${detail.currentTokens || 0}`;
+            if (currentSelectedCaseIndex === idx) {
+              detailCaseOutput.innerText = entry.resultText;
+            }
+          }
+        }
+
+        if (isFinished) {
+          clearInterval(interval);
+
+          // Gather result details
+          entry.resultText = detail.lastContentPreview || '';
+          const isSuccessRun = detail.lastSuccess !== false;
+
+          // Store session metadata. Always include `exchanges`/`logs` so the
+          // check expression can safely call session.exchanges.some(...)
+          // even when no session file is ever produced for this run.
+          entry.sessionData = {
+            lastSessionUrl: detail.lastSessionUrl,
+            lastSessionPath: detail.lastSessionPath,
+            lastTokens: detail.lastTokens,
+            lastRounds: detail.lastRounds,
+            exchanges: [],
+            logs: []
+          };
+
+          // Attempt to load full session file to get exchanges & logs
+          if (detail.lastSessionUrl) {
+            try {
+              const fullSession = await invoke('fetch_url_json', {
+                url: resolveServerUrl(detail.lastSessionUrl)
+              });
+              entry.sessionData = fullSession;
+              entry.logs = fullSession.logs || [];
+            } catch (e) {
+              console.error('Failed to load session details', e);
+            }
+          }
+
+          // If the agent execution itself failed
+          if (!isSuccessRun) {
+            entry.status = 'error';
+            entry.errorMsg = 'Agent aborted or run execution failed internally';
+          } else {
+            // Run the assertion check
+            verifyCheckExpressionForEntry(tc, entry);
+          }
+
+          recomputeAggregate(tc);
+          renderTestCasesList();
+          updateStats();
+          if (currentSelectedCaseIndex === idx) selectTestCase(idx);
+          resolve();
+        }
+      } catch (err) {
+        console.error('Polling error', err);
+      }
+    }, 1000);
+  });
 }
 
-// Evaluate JavaScript verification expression
-function verifyCheckExpression(idx) {
-  const tc = testCases[idx];
-  const resultText = getFullResultText(tc);
-  const sessionObj = tc.sessionData || { exchanges: [], logs: [] };
+// Evaluate JavaScript verification expression against one model's result entry.
+function verifyCheckExpressionForEntry(tc, entry) {
+  const resultText = getFullResultText(entry);
+  const sessionObj = entry.sessionData || { exchanges: [], logs: [] };
 
   try {
     // Quick syntax helper: if check starts with "contains:", do case-insensitive substring
@@ -800,18 +1162,21 @@ function verifyCheckExpression(idx) {
     }
 
     if (passed) {
-      tc.status = 'success';
+      entry.status = 'success';
     } else {
-      tc.status = 'error';
-      tc.errorMsg = 'Assertion failed: check expression evaluated to false.';
+      entry.status = 'error';
+      entry.errorMsg = 'Assertion failed: check expression evaluated to false.';
     }
   } catch (err) {
-    tc.status = 'error';
-    tc.errorMsg = `Assertion check syntax error: ${err.message}`;
+    entry.status = 'error';
+    entry.errorMsg = `Assertion check syntax error: ${err.message}`;
   }
 }
 
-// Run all tests sequentially
+// Run all tests: iterates checked Model List entries in list order,
+// running every test case to completion for one model before moving on
+// to the next (rather than interleaving models per test case). Falls
+// back to each test case's own `model` field when no model is checked.
 async function runAllTests() {
   if (isRunningAll) return;
   isRunningAll = true;
@@ -821,32 +1186,27 @@ async function runAllTests() {
   btnStopAll.innerHTML = '<span>■</span> Stop';
   agentSelect.disabled = true;
 
-  // Reset all cases to idle
-  testCases.forEach(tc => {
-    tc.status = 'idle';
-    tc.resultText = '';
-    tc.sessionData = null;
-    tc.execId = '';
-    tc.logs = [];
-    tc.errorMsg = '';
-  });
+  const models = getCheckedModels();
+  const modelSeq = models.length > 0 ? models : [null];
 
+  // Clear out only the result slots we're about to (re)run, so re-running
+  // a subset of models doesn't wipe sibling-model results still on screen.
+  testCases.forEach(tc => {
+    if (!tc.modelResults) tc.modelResults = {};
+    modelSeq.forEach(m => { delete tc.modelResults[modelKeyFor(m)]; });
+    recomputeAggregate(tc);
+  });
   renderTestCasesList();
   updateStats();
 
-  // Sequentially run
-  for (let i = 0; i < testCases.length; i++) {
-    if (stopRequested) {
-      break;
-    }
-    await new Promise((resolve) => {
-      // Store completion listener
-      window.onTestCaseComplete = () => {
-        window.onTestCaseComplete = null;
-        resolve();
-      };
-      runSingleTest(i);
+  for (const model of modelSeq) {
+    await withLmStudioModel(model, async () => {
+      for (let i = 0; i < testCases.length; i++) {
+        if (stopRequested) return;
+        await executeTestCaseForModel(i, model);
+      }
     });
+    if (stopRequested) break;
   }
 
   isRunningAll = false;
@@ -857,12 +1217,6 @@ async function runAllTests() {
   agentSelect.disabled = false;
   updateStats();
   renderTestCasesList();
-}
-
-function onTestFinished() {
-  if (isRunningAll && typeof window.onTestCaseComplete === 'function') {
-    window.onTestCaseComplete();
-  }
 }
 
 // Utilities
