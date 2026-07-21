@@ -44,6 +44,13 @@
       </button>
     </div>
 
+    <!-- Model Override reminder — only visible while >=1 Model List entry is checked,
+         since a checked entry silently overrides every test case's own `model` field. -->
+    <div class="model-override-banner" id="model-override-banner" style="display:none;">
+      <span class="model-override-icon">⚠️</span>
+      <span id="model-override-banner-text"></span>
+    </div>
+
     <!-- Left column: Test cases list -->
     <div class="main-panel">
       <div class="panel-header">
@@ -73,6 +80,11 @@
             <div class="stat-label">Pending</div>
           </div>
         </div>
+      </div>
+
+      <div class="category-stats-card" id="category-stats-card" style="display:none;">
+        <div class="category-stats-header">By Category</div>
+        <div class="category-stats-list" id="category-stats-list"></div>
       </div>
 
       <div class="test-list" id="test-cases-list">
@@ -106,9 +118,9 @@
         </button>
       </div>
 
-      <div class="sidebar-card">
+      <div class="sidebar-card" id="model-list-card">
         <div class="sidebar-card-header">
-          <h3><span>🧩</span> Model List</h3>
+          <h3><span>🧩</span> Model List <span class="model-list-checked-badge" id="model-list-checked-badge" style="display:none;"></span></h3>
           <button class="btn btn-secondary btn-icon-small" id="btn-model-add" title="新增 Model">
             <span>➕</span> 新增
           </button>

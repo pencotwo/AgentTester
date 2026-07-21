@@ -60,6 +60,9 @@ const modelListEmpty = document.getElementById('model-list-empty');
 const btnModelAdd = document.getElementById('btn-model-add');
 const chkAutoSwitchLm = document.getElementById('chk-auto-switch-lm');
 const lmSwitchStatus = document.getElementById('lm-switch-status');
+const modelOverrideBanner = document.getElementById('model-override-banner');
+const modelOverrideBannerText = document.getElementById('model-override-banner-text');
+const modelListCheckedBadge = document.getElementById('model-list-checked-badge');
 const connectionDot = document.getElementById('connection-dot');
 const connectionText = document.getElementById('connection-text');
 
@@ -70,6 +73,8 @@ const statFailed = document.getElementById('stat-failed');
 const statPending = document.getElementById('stat-pending');
 const testProgressBar = document.getElementById('test-progress-bar');
 const summaryBadge = document.getElementById('summary-badge');
+const categoryStatsCard = document.getElementById('category-stats-card');
+const categoryStatsList = document.getElementById('category-stats-list');
 
 // Detail elements
 const detailPopover = document.getElementById('test-detail-popover');
@@ -476,6 +481,26 @@ function getCheckedModels() {
   return modelList.filter(m => m.checked).map(m => m.name);
 }
 
+// Surface the currently-checked Model List entries wherever a run could be
+// triggered, since a checked entry silently overrides every test case's own
+// `model` field (see getCheckedModels / executeTestCaseForModel). Without
+// this, it's easy to leave a model checked from a previous session and
+// unknowingly test the wrong model on the next run.
+function renderModelOverrideBanner() {
+  const checked = getCheckedModels();
+  if (checked.length === 0) {
+    modelOverrideBanner.style.display = 'none';
+    modelListCheckedBadge.style.display = 'none';
+    return;
+  }
+  modelOverrideBanner.style.display = '';
+  modelOverrideBannerText.textContent =
+    `Model Override 生效中：已勾選 ${checked.length} 個 Model（${checked.join('、')}），` +
+    'Run / Run All Tests 時將強制使用這些 Model，忽略每個 test case 自己的 model 設定。';
+  modelListCheckedBadge.style.display = '';
+  modelListCheckedBadge.textContent = `${checked.length} 個已勾選`;
+}
+
 function addModel() {
   const name = prompt('新增 Model 名稱（需與 Agent 端可用的 Model 名稱一致）：');
   if (!name || !name.trim()) return;
@@ -508,6 +533,7 @@ function deleteModel(idx) {
 function renderModelList() {
   modelListEl.querySelectorAll('.model-item').forEach(el => el.remove());
   modelListEmpty.style.display = modelList.length === 0 ? 'block' : 'none';
+  renderModelOverrideBanner();
 
   modelList.forEach((m, idx) => {
     const item = document.createElement('div');
@@ -526,6 +552,7 @@ function renderModelList() {
 
     item.querySelector('.model-checkbox').addEventListener('change', (e) => {
       m.checked = e.target.checked;
+      renderModelOverrideBanner();
       persistModelList();
     });
     item.querySelector('.btn-model-edit').addEventListener('click', () => editModel(idx));
@@ -620,6 +647,7 @@ function initializeTestCases() {
     tools: tc.tools || [],
     knowledges: tc.knowledges || [],
     model: tc.model || '',
+    category: tc.category || '',
     check: tc.check || 'true',
     status: 'idle', // idle, running, success, error
     resultText: '',
@@ -672,6 +700,46 @@ function updateStats() {
     summaryBadge.innerText = 'READY';
     summaryBadge.className = 'test-status-badge status-idle';
   }
+
+  updateCategoryStats();
+}
+
+// Per-category TOTAL / PASSED / FAILED / PENDING breakdown
+function updateCategoryStats() {
+  const categories = {};
+  const hasAnyCategory = testCases.some(tc => tc.category);
+
+  testCases.forEach(tc => {
+    const cat = tc.category || 'Uncategorized';
+    if (!categories[cat]) categories[cat] = { total: 0, passed: 0, failed: 0, running: 0 };
+    categories[cat].total++;
+    if (tc.status === 'success') categories[cat].passed++;
+    else if (tc.status === 'error') categories[cat].failed++;
+    else if (tc.status === 'running') categories[cat].running++;
+  });
+
+  if (!hasAnyCategory) {
+    categoryStatsCard.style.display = 'none';
+    categoryStatsList.innerHTML = '';
+    return;
+  }
+
+  categoryStatsCard.style.display = '';
+  categoryStatsList.innerHTML = Object.keys(categories).sort().map(name => {
+    const c = categories[name];
+    const pending = c.total - c.passed - c.failed - c.running;
+    return `
+      <div class="category-stats-row">
+        <span class="category-stats-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+        <span class="category-stats-counts">
+          <span class="cs-total">T:${c.total}</span>
+          <span class="cs-passed">P:${c.passed}</span>
+          <span class="cs-failed">F:${c.failed}</span>
+          <span class="cs-pending">Pd:${pending}</span>
+        </span>
+      </div>
+    `;
+  }).join('');
 }
 
 // Render left panel test items
@@ -715,6 +783,9 @@ function renderTestCasesList() {
         </button>
       </div>
       <div class="test-meta-row">
+        ${tc.category
+          ? `<span class="test-meta-tag test-meta-category">${escapeHtml(tc.category)}</span>`
+          : ''}
         <span class="test-meta-tag test-meta-model">${escapeHtml(tc.model || 'Default Model')}</span>
         ${tc.tools && tc.tools.length > 0
           ? tc.tools.map(t => `<span class="test-meta-tag test-meta-tool">${escapeHtml(t)}</span>`).join('')
