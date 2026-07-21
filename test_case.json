@@ -49,7 +49,7 @@
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
-    "check": "(() => { try { const obj = JSON.parse(result.replace(/```json|```/g, '').trim()); return obj.name === '王小明'; } catch(e) { return false; } })()"
+    "check": "(() => { try { const obj = JSON.parse(result.replace(/```json|```/g, '').trim()); return obj['姓名'] === '王小明'; } catch(e) { return false; } })()"
   },
   {
     "id": 6,
@@ -119,7 +119,7 @@
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
-    "check": "!result.includes('水')"
+    "check": "(() => { const t = result.trim(); if (t.includes('水')) return false; if (t.length > 60) return false; if (t.includes('\\n')) return false; if (/\\d+[\\.\\)]/.test(t)) return false; return true; })()"
   },
   {
     "id": 13,
@@ -893,7 +893,7 @@
     "knowledges": [],
     "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
-    "check": "!result.includes('爛') && result.trim().length > 0"
+    "check": "(() => { const t = result.trim(); if (t.length === 0) return false; const positiveHints = ['建議', '改善', '改進', '潛力', '期待', '提升', '優化', '希望', '不錯', '加強', '調整']; return positiveHints.some(w => t.includes(w)); })()"
   },
   {
     "id": 87,
