@@ -377,14 +377,11 @@ async function saveJsonToFile() {
   }
 }
 
-// Save the current test *results* (status/output/session/logs for every
-// loaded case) to a JSON file, separate from the test_case.json config.
-async function saveTestResults() {
-  if (testCases.length === 0) {
-    alert('No test cases loaded — nothing to save.');
-    return;
-  }
-  const payload = {
+// Build the results payload (status/output/session/logs for every loaded
+// case) shared by the manual "Save Results" dialog and the automatic
+// post-"Run All Tests" save — keeps both writers in the same JSON shape.
+function buildTestResultsPayload() {
+  return {
     savedAt: new Date().toISOString(),
     results: testCases.map(tc => ({
       id: tc.id,
@@ -399,6 +396,16 @@ async function saveTestResults() {
       modelResults: tc.modelResults || {}
     }))
   };
+}
+
+// Save the current test *results* to a JSON file via the native save
+// dialog, separate from the test_case.json config.
+async function saveTestResults() {
+  if (testCases.length === 0) {
+    alert('No test cases loaded — nothing to save.');
+    return;
+  }
+  const payload = buildTestResultsPayload();
   const content = JSON.stringify(payload, null, 2);
   const stamp = payload.savedAt.replace(/[:.]/g, '-');
   try {
@@ -412,6 +419,25 @@ async function saveTestResults() {
     }
   } catch (err) {
     alert('Failed to save results: ' + err);
+  }
+}
+
+// Silently save results to <app dir>/result/ after "Run All Tests" — same
+// JSON format as saveTestResults(), no dialog, so every run leaves a record.
+async function autoSaveTestResults() {
+  if (testCases.length === 0) return;
+  const payload = buildTestResultsPayload();
+  const content = JSON.stringify(payload, null, 2);
+  const stamp = payload.savedAt.replace(/[:.]/g, '-');
+  try {
+    const savedPath = await invoke('save_test_result_auto', {
+      content,
+      defaultName: `test_result_${stamp}.json`
+    });
+    resultFilePath.innerText = savedPath;
+    resultFilePath.title = savedPath;
+  } catch (err) {
+    console.error('Auto-save of test results failed:', err);
   }
 }
 
@@ -1315,6 +1341,8 @@ async function runAllTests() {
     });
     if (stopRequested) break;
   }
+
+  await autoSaveTestResults();
 
   isRunningAll = false;
   stopRequested = false;

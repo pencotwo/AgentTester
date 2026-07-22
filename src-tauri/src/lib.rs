@@ -242,6 +242,24 @@ async fn save_test_result_dialog(
     }
 }
 
+/// Silently persist test results to `<app dir>/result/<name>` — no dialog.
+/// Used by "Run All Tests" so every run leaves an automatic record on disk,
+/// in the same JSON format as the manual "Save Results" dialog.
+#[tauri::command]
+fn save_test_result_auto(content: String, default_name: String) -> Result<String, String> {
+    let dir = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+        .or_else(|| std::env::current_dir().ok())
+        .ok_or("Unable to resolve a directory to save results")?
+        .join("result");
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create {}: {e}", dir.display()))?;
+    let path = dir.join(&default_name);
+    std::fs::write(&path, content).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
+    Ok(path.display().to_string())
+}
+
 /// Native "open file" dialog for a previously saved test-result JSON file.
 #[tauri::command]
 async fn open_test_result_dialog(app: tauri::AppHandle) -> Result<Option<LoadedFile>, String> {
@@ -338,6 +356,7 @@ pub fn run() {
             open_test_case_dialog,
             save_test_case_dialog,
             save_test_result_dialog,
+            save_test_result_auto,
             open_test_result_dialog,
             lms_load_model,
             lms_unload_model,
