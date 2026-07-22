@@ -36,7 +36,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => (r.tool_name === 'execute_command' || r.tool_name === 'run_shell_command') && r.raw_result && r.raw_result.includes('hello_agent_test'))"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && (ex.payload.name === 'execute_command' || ex.payload.name === 'run_shell_command') && ex.payload.result && ex.payload.result.includes('hello_agent_test'))"
   },
   {
     "id": 5,
@@ -245,7 +245,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'read_file')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && ex.payload.name === 'read_file')"
   },
   {
     "id": 28,
@@ -257,7 +257,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'list_dir' || r.tool_name === 'list_directory')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && (ex.payload.name === 'list_dir' || ex.payload.name === 'list_directory'))"
   },
   {
     "id": 29,
@@ -271,7 +271,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'grep_search' || r.tool_name === 'search_content')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && (ex.payload.name === 'grep_search' || ex.payload.name === 'search_content'))"
   },
   {
     "id": 30,
@@ -282,7 +282,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'get_current_time')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && ex.payload.name === 'get_current_time')"
   },
   {
     "id": 31,
@@ -293,7 +293,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'web_search')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && ex.payload.name === 'web_search')"
   },
   {
     "id": 32,
@@ -304,7 +304,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'google_search')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && ex.payload.name === 'google_search')"
   },
   {
     "id": 33,
@@ -316,7 +316,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'fetch_url' || r.tool_name === 'http_request')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && (ex.payload.name === 'fetch_url' || ex.payload.name === 'http_request'))"
   },
   {
     "id": 34,
@@ -327,7 +327,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'python_interpreter')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && ex.payload.name === 'python_interpreter')"
   },
   {
     "id": 35,
@@ -339,7 +339,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => (r.tool_name === 'execute_command' || r.tool_name === 'run_shell_command') && r.raw_result && r.raw_result.includes('tool_test_marker_789'))"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && (ex.payload.name === 'execute_command' || ex.payload.name === 'run_shell_command') && ex.payload.result && ex.payload.result.includes('tool_test_marker_789'))"
   },
   {
     "id": 36,
@@ -350,7 +350,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'read_file') && result.trim().length > 0"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && ex.payload.name === 'read_file') && result.trim().length > 0"
   },
   {
     "id": 37,
@@ -362,7 +362,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'list_dir' || r.tool_name === 'list_directory')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && (ex.payload.name === 'list_dir' || ex.payload.name === 'list_directory'))"
   },
   {
     "id": 38,
@@ -376,7 +376,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'grep_search' || r.tool_name === 'search_content')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && (ex.payload.name === 'grep_search' || ex.payload.name === 'search_content'))"
   },
   {
     "id": 39,
@@ -389,7 +389,7 @@
     ],
     "knowledges": [],
     "category": "工具呼叫 (Tool Use)",
-    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'list_dir' || r.tool_name === 'list_directory') && (session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'read_file')"
+    "check": "(session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && (ex.payload.name === 'list_dir' || ex.payload.name === 'list_directory')) && (session.exchanges||[]).some(ex => ex.phase === 'tool' && ex.payload && ex.payload.name === 'read_file')"
   },
   {
     "id": 40,
