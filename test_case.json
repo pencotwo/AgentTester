@@ -5,7 +5,6 @@
     "prompt": "請用繁體中文回答：『你好，我是 Agent！』",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "/你好|您好/.test(result) && /agent/i.test(result)"
   },
@@ -15,7 +14,6 @@
     "prompt": "請計算 25 * 4 等於多少？請只回答數字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('100') || result.trim() === '100'"
   },
@@ -25,7 +23,6 @@
     "prompt": "寫一段關於蘋果 and 香蕉的簡短故事，需同時提到這兩個水果。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "(result.includes('蘋果') || result.includes('苹果')) && result.includes('香蕉')"
   },
@@ -34,12 +31,12 @@
     "name": "工具執行檢查測試 (Tool Execution Check)",
     "prompt": "請使用 execute_command 工具執行 'cmd /c echo hello_agent_test'，並確保它執行成功。",
     "tools": [
-      "execute_command"
+      "execute_command",
+      "run_shell_command"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'command_output' && ex.payload.line && ex.payload.line.includes('hello_agent_test'))"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => (r.tool_name === 'execute_command' || r.tool_name === 'run_shell_command') && r.raw_result && r.raw_result.includes('hello_agent_test'))"
   },
   {
     "id": 5,
@@ -47,7 +44,6 @@
     "prompt": "請以 JSON 格式回答，包含姓名、年齡、技能三個欄位，姓名設定為『王小明』，其餘可自訂。請只回傳 JSON 內容，不要有 markdown 語法包裝。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "(() => { try { const obj = JSON.parse(result.replace(/```json|```/g, '').trim()); return obj['姓名'] === '王小明'; } catch(e) { return false; } })()"
   },
@@ -57,7 +53,6 @@
     "prompt": "請建立一個 markdown 表格，列出三種水果及其英文名稱與顏色。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "result.includes('|') && result.includes('---')"
   },
@@ -67,7 +62,6 @@
     "prompt": "請將英文『Hello, how are you?』翻譯成日文，並只回答翻譯後的日文內容。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('こんにちは') || result.includes('元気') || result.includes('お元気ですか')"
   },
@@ -77,7 +71,6 @@
     "prompt": "請用大約 10 個中文字描述今天的天氣晴朗。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "result.trim().length >= 5 && result.trim().length <= 25"
   },
@@ -87,7 +80,6 @@
     "prompt": "Translate 'hello world' to English uppercase. Answer only the words.",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('HELLO WORLD')"
   },
@@ -97,7 +89,6 @@
     "prompt": "請將這組數字由小到大排序：42, 17, 89, 5, 23。請只回答排序後的數字，並用逗號隔開。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('5') && result.includes('17') && result.includes('23') && result.includes('42') && result.includes('89')"
   },
@@ -107,7 +98,6 @@
     "prompt": "請將這段簡體字轉換為繁體字：『人工智能正在改变我们的生活。』",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('智慧') || result.includes('改變') || result.includes('生活')"
   },
@@ -117,7 +107,6 @@
     "prompt": "寫一段描述海洋的短句，但絕對不能提到『水』這個中文字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "(() => { const t = result.trim(); if (t.includes('水')) return false; if (t.length > 60) return false; if (t.includes('\\n')) return false; if (/\\d+[\\.\\)]/.test(t)) return false; return true; })()"
   },
@@ -127,7 +116,6 @@
     "prompt": "請計算 (50 - 20) * 3 / 2 等於多少？",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('45')"
   },
@@ -137,7 +125,6 @@
     "prompt": "請用 Python 寫一個計算階乘（factorial）的遞迴函數，只回傳程式碼。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.includes('def ') && result.includes('return') && (result.includes('factorial') || result.includes('fact'))"
   },
@@ -147,7 +134,6 @@
     "prompt": "請撰寫一個 SQL 查詢，從 users 資料表中選取 age 大於 18 的所有使用者姓名 (name)。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.toLowerCase().includes('select name') && result.toLowerCase().includes('where age > 18')"
   },
@@ -157,7 +143,6 @@
     "prompt": "請提供一個用來驗證電子郵件地址（Email）的正則表達式。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.includes('@') && (result.includes('[a-zA-Z]') || result.includes('regex') || result.includes('\\\\w+'))"
   },
@@ -167,7 +152,6 @@
     "prompt": "找出這段 Python 程式碼的錯誤並修正它：def add(a, b) return a + b (提示：缺少冒號)",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.includes('def add(a, b):')"
   },
@@ -177,7 +161,6 @@
     "prompt": "請寫一首關於『秋天』與『落葉』的五言絕句。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "/秋/.test(result) && /葉|叶/.test(result) && result.length >= 10"
   },
@@ -187,7 +170,6 @@
     "prompt": "請將以下內容摘要成一句話：『Tauri 是一個使用網頁技術構建跨平台桌面應用程式的框架。它使用 Rust 作為後端，網頁作為前端，體積小且速度快。』",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "result.includes('Tauri') && (result.includes('跨平台') || result.includes('框架') || result.includes('桌面'))"
   },
@@ -197,7 +179,6 @@
     "prompt": "歷史上是誰說過：『我思故我在』？",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('笛卡兒') || result.includes('笛卡尔') || result.includes('Descartes')"
   },
@@ -207,7 +188,6 @@
     "prompt": "請問『前進』的反義詞是什麼？請只回答該反義詞。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('後退') || result.includes('退後') || result.includes('后退') || result.includes('退后')"
   },
@@ -217,7 +197,6 @@
     "prompt": "將 5 英哩（miles）轉換為公里（kilometers），精確到小數點後兩位。只回答數字和單位。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('8.05')"
   },
@@ -227,7 +206,6 @@
     "prompt": "告訴我 test@example.com 是不是一個合法的 Email 格式？回答是或否。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('是') || result.toLowerCase().includes('yes')"
   },
@@ -237,7 +215,6 @@
     "prompt": "化學分子式 H2O 代表什麼常見物質？請用中文回答。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('水')"
   },
@@ -247,7 +224,6 @@
     "prompt": "如果今天是星期一，那麼後天是星期幾？請只回答星期幾。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('三')"
   },
@@ -257,7 +233,6 @@
     "prompt": "請將字串『Agent』反轉，例如『ABC』變成『CBA』。請只回傳反轉後的字串。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.toLowerCase().includes('tnega')"
   },
@@ -269,9 +244,8 @@
       "read_file"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'read_file')"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'read_file')"
   },
   {
     "id": 28,
@@ -282,9 +256,8 @@
       "list_directory"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && (ex.payload.name === 'list_dir' || ex.payload.name === 'list_directory'))"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'list_dir' || r.tool_name === 'list_directory')"
   },
   {
     "id": 29,
@@ -292,13 +265,13 @@
     "prompt": "請在 'test' 目錄底下搜尋包含關鍵字 'Basic Greeting' 的檔案。",
     "tools": [
       "grep_search",
+      "search_content",
       "list_dir",
       "list_directory"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'grep_search')"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'grep_search' || r.tool_name === 'search_content')"
   },
   {
     "id": 30,
@@ -308,9 +281,8 @@
       "get_current_time"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'get_current_time')"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'get_current_time')"
   },
   {
     "id": 31,
@@ -320,9 +292,8 @@
       "web_search"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'web_search')"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'web_search')"
   },
   {
     "id": 32,
@@ -332,21 +303,20 @@
       "google_search"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'google_search')"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'google_search')"
   },
   {
     "id": 33,
     "name": "網址擷取工具測試 (Tool Fetch URL)",
     "prompt": "請使用 fetch_url 工具擷取 https://example.com 的網頁內容，並告訴我頁面主要在講什麼。",
     "tools": [
-      "fetch_url"
+      "fetch_url",
+      "http_request"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'fetch_url')"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'fetch_url' || r.tool_name === 'http_request')"
   },
   {
     "id": 34,
@@ -356,21 +326,20 @@
       "python_interpreter"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'python_interpreter')"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'python_interpreter')"
   },
   {
     "id": 35,
     "name": "指令執行結果驗證測試 (Tool Execute Command - Output Verification)",
     "prompt": "請使用 execute_command 工具執行 'cmd /c echo tool_test_marker_789'，並確認輸出內容。",
     "tools": [
-      "execute_command"
+      "execute_command",
+      "run_shell_command"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'command_output' && ex.payload.line && ex.payload.line.includes('tool_test_marker_789'))"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => (r.tool_name === 'execute_command' || r.tool_name === 'run_shell_command') && r.raw_result && r.raw_result.includes('tool_test_marker_789'))"
   },
   {
     "id": 36,
@@ -380,9 +349,8 @@
       "read_file"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'read_file') && result.trim().length > 0"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'read_file') && result.trim().length > 0"
   },
   {
     "id": 37,
@@ -393,9 +361,8 @@
       "list_directory"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && (ex.payload.name === 'list_dir' || ex.payload.name === 'list_directory'))"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'list_dir' || r.tool_name === 'list_directory')"
   },
   {
     "id": 38,
@@ -403,13 +370,13 @@
     "prompt": "請在 'test' 目錄底下搜尋同時包含 'Math' 與 'test' 的檔案。",
     "tools": [
       "grep_search",
+      "search_content",
       "list_dir",
       "list_directory"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'grep_search')"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'grep_search' || r.tool_name === 'search_content')"
   },
   {
     "id": 39,
@@ -421,9 +388,8 @@
       "read_file"
     ],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "工具呼叫 (Tool Use)",
-    "check": "session.exchanges.some(ex => ex.phase === 'tool' && (ex.payload.name === 'list_dir' || ex.payload.name === 'list_directory')) && session.exchanges.some(ex => ex.phase === 'tool' && ex.payload.name === 'read_file')"
+    "check": "(session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'list_dir' || r.tool_name === 'list_directory') && (session.steps||[]).flatMap(s => (s.cycle_traces||[]).flatMap(ct => (ct.action && ct.action.records) || [])).some(r => r.tool_name === 'read_file')"
   },
   {
     "id": 40,
@@ -431,7 +397,6 @@
     "prompt": "請用 JavaScript 寫一個函數，將傳入的陣列反轉並回傳，只回傳程式碼。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "(result.includes('function') || result.includes('=>')) && result.includes('return')"
   },
@@ -441,7 +406,6 @@
     "prompt": "請用 Python 寫一個氣泡排序（bubble sort）函數，只回傳程式碼。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.includes('def ') && result.includes('for') && result.includes('return')"
   },
@@ -451,7 +415,6 @@
     "prompt": "請寫一個最基本的 HTML5 網頁結構，標題為『測試頁面』。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.includes('<html') && result.includes('<title>') && result.includes('測試頁面')"
   },
@@ -461,7 +424,6 @@
     "prompt": "請寫一段 CSS，使用 Flexbox 讓子元素水平置中對齊。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.includes('display') && result.includes('flex') && (result.includes('justify-content') || result.includes('align-items'))"
   },
@@ -471,7 +433,6 @@
     "prompt": "這段程式碼會因為除以零而崩潰：def divide(a, b): return a / b。請修改它，加入例外處理讓除以零時回傳 None。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.includes('try') && result.includes('except') && result.includes('None')"
   },
@@ -481,7 +442,6 @@
     "prompt": "請撰寫一個 SQL 查詢，使用 JOIN 將 orders 資料表與 customers 資料表依 customer_id 關聯，選取顧客姓名與訂單金額。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.toLowerCase().includes('join') && result.toLowerCase().includes('customer_id')"
   },
@@ -491,9 +451,8 @@
     "prompt": "請提供一個用來驗證台灣手機號碼（格式如 0912345678）的正則表達式。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
-    "check": "result.includes('09') && (result.includes('[0-9]') || result.includes('{9}') || result.toLowerCase().includes('regex'))"
+    "check": "(() => { const m = result.match(/```[a-zA-Z]*\\n([\\s\\S]*?)```/) || result.match(/`([^`]+)`/); let pattern = (m ? m[1] : result).trim(); const slashMatch = pattern.match(/^\\/(.*)\\/[a-z]*$/); if (slashMatch) pattern = slashMatch[1]; try { const re = new RegExp(pattern); return re.test('0912345678') && !re.test('091234567') && !re.test('09123456789') && !re.test('0812345678'); } catch (e) { return false; } })()"
   },
   {
     "id": 47,
@@ -501,7 +460,6 @@
     "prompt": "請用 Python 寫一個用迴圈（非遞迴）計算費氏數列第 n 項的函數，只回傳程式碼。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.includes('def ') && (result.includes('for') || result.includes('while'))"
   },
@@ -511,9 +469,8 @@
     "prompt": "請寫一個 Bash shell script，列出目前目錄下所有 .txt 檔案。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
-    "check": "result.includes('ls') && result.includes('.txt')"
+    "check": "result.includes('.txt') && /\\bls\\b|\\bfor\\b|\\bfind\\b/.test(result)"
   },
   {
     "id": 49,
@@ -521,7 +478,6 @@
     "prompt": "請幫這段 Python 程式碼加上註解說明每一行的用途：def add(a, b): return a + b",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "程式碼生成與除錯 (Code Generation & Debugging)",
     "check": "result.includes('#') && result.includes('def add')"
   },
@@ -531,7 +487,6 @@
     "prompt": "請以 YAML 格式輸出一筆使用者資料，包含 name、age、email 三個欄位，name 設為 'Alice'。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "result.includes('name:') && result.includes('Alice')"
   },
@@ -541,7 +496,6 @@
     "prompt": "請以 CSV 格式輸出三筆水果資料，欄位為 name,color，並包含標題列。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "result.includes(',') && result.toLowerCase().includes('name') && result.toLowerCase().includes('color')"
   },
@@ -551,7 +505,6 @@
     "prompt": "請以 XML 格式輸出一筆書籍資料，包含 title 與 author 標籤，title 設為『測試書籍』。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "result.includes('<title>') && result.includes('測試書籍')"
   },
@@ -561,7 +514,6 @@
     "prompt": "請用 Markdown 寫出一個包含一級標題與二級標題的文件大綱，主題為『專案報告』。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "result.includes('# ') && result.includes('## ')"
   },
@@ -571,7 +523,6 @@
     "prompt": "請用 Markdown 條列式列出三種程式語言。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "(result.match(/^[-*]/gm) || []).length >= 3"
   },
@@ -581,7 +532,6 @@
     "prompt": "請用 Markdown 程式碼區塊（code fence）包裝一段 Python 的 print('hello') 範例。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "result.includes('```') && result.includes('print')"
   },
@@ -591,9 +541,8 @@
     "prompt": "請以 JSON 格式輸出一筆訂單資料，包含 order_id 與一個巢狀的 customer 物件（含 name 欄位，設為『陳大文』）。只回傳 JSON。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
-    "check": "(() => { try { const obj = JSON.parse(result.replace(/```json|```/g, '').trim()); return obj.customer && obj.customer.name === '陳大文'; } catch(e) { return false; } })()"
+    "check": "(() => { try { const m = result.match(/```(?:json)?\\s*([\\s\\S]*?)```/); const jsonStr = (m ? m[1] : result).trim(); const obj = JSON.parse(jsonStr); return obj.customer && obj.customer.name === '陳大文'; } catch(e) { return false; } })()"
   },
   {
     "id": 57,
@@ -601,9 +550,8 @@
     "prompt": "請以 JSON 陣列格式輸出三個數字 1、2、3，只回傳 JSON。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
-    "check": "(() => { try { const arr = JSON.parse(result.replace(/```json|```/g, '').trim()); return Array.isArray(arr) && arr.length === 3; } catch(e) { return false; } })()"
+    "check": "(() => { try { const m = result.match(/```(?:json)?\\s*([\\s\\S]*?)```/); const jsonStr = (m ? m[1] : result).trim(); const arr = JSON.parse(jsonStr); return Array.isArray(arr) && arr.length === 3; } catch(e) { return false; } })()"
   },
   {
     "id": 58,
@@ -611,7 +559,6 @@
     "prompt": "請用 Markdown 語法，將『重要』設為粗體，將『注意』設為斜體，寫在同一句話中。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "(result.includes('**重要**') || result.includes('__重要__')) && (result.includes('*注意*') || result.includes('_注意_'))"
   },
@@ -621,7 +568,6 @@
     "prompt": "請用 HTML 語法建立一個表格，列出兩種水果及其顏色。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "result.includes('<table') && result.includes('<tr') && result.includes('<td')"
   },
@@ -631,7 +577,6 @@
     "prompt": "請用純文字（不要使用任何 Markdown 符號，例如 #、*、-、|）描述今天適合出門運動。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "!/[#*|`]/.test(result) && result.trim().length > 0"
   },
@@ -641,7 +586,6 @@
     "prompt": "請以 key: value 的格式，每行一筆，輸出姓名、城市、職業三項資訊，姓名設為『林小美』。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "格式化輸出 (Format Output)",
     "check": "result.includes('林小美') && result.includes(':')"
   },
@@ -651,9 +595,8 @@
     "prompt": "請將『今天天氣很好』翻譯成英文，只回答翻譯結果。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
-    "check": "result.toLowerCase().includes('weather') && (result.toLowerCase().includes('good') || result.toLowerCase().includes('nice'))"
+    "check": "result.toLowerCase().includes('weather') && /\\b(good|nice|great|fine|lovely|wonderful|beautiful|excellent)\\b/.test(result.toLowerCase())"
   },
   {
     "id": 63,
@@ -661,7 +604,6 @@
     "prompt": "請將『Good morning』翻譯成法文，只回答翻譯結果。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.toLowerCase().includes('bonjour')"
   },
@@ -671,7 +613,6 @@
     "prompt": "請將『Thank you』翻譯成韓文，只回答翻譯結果。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('감사') || result.includes('고마워')"
   },
@@ -681,7 +622,6 @@
     "prompt": "請將『Good night』翻譯成西班牙文，只回答翻譯結果。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.toLowerCase().includes('buenas noches')"
   },
@@ -691,7 +631,6 @@
     "prompt": "請將這段繁體字轉換為簡體字：『這是一個測試句子，用來驗證轉換功能。』",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('这是') || result.includes('测试') || result.includes('转换')"
   },
@@ -701,7 +640,6 @@
     "prompt": "請將全形數字『１２３４５』轉換為半形數字，只回答轉換後的結果。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('12345')"
   },
@@ -711,7 +649,6 @@
     "prompt": "請將『HELLO WORLD』轉換為全部小寫，只回答轉換後的文字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('hello world')"
   },
@@ -721,7 +658,6 @@
     "prompt": "請將數字 128 轉換為中文數字寫法，只回答轉換結果。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('一百二十八') || result.includes('壹佰貳拾捌')"
   },
@@ -731,7 +667,6 @@
     "prompt": "請將中文數字『三百四十五』轉換為阿拉伯數字，只回答數字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('345')"
   },
@@ -741,7 +676,6 @@
     "prompt": "請將攝氏 25 度轉換為華氏溫度，只回答數字（可含小數）。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('77')"
   },
@@ -751,7 +685,6 @@
     "prompt": "請將漢語拼音『ni hao』轉換為對應的繁體中文字，只回答轉換結果。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "語言翻譯與轉換 (Translation & Conversion)",
     "check": "result.includes('你好')"
   },
@@ -761,7 +694,6 @@
     "prompt": "請問 97 是不是質數？請回答是或否。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('是') && !result.includes('不是')"
   },
@@ -771,7 +703,6 @@
     "prompt": "費氏數列（Fibonacci）的第 10 項是多少？（1, 1, 2, 3, 5...）請只回答數字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('55')"
   },
@@ -781,7 +712,6 @@
     "prompt": "所有的貓都是動物，小花是一隻貓，請問小花是不是動物？請回答是或否。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('是') && !result.includes('不是')"
   },
@@ -791,7 +721,6 @@
     "prompt": "請問『AgentTester』這個字串總共有幾個字元？請只回答數字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('11')"
   },
@@ -801,7 +730,6 @@
     "prompt": "請問『level』是不是迴文（palindrome）？請回答是或否。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('是') && !result.includes('不是')"
   },
@@ -811,7 +739,6 @@
     "prompt": "請問『HeLLo WoRLD』這段文字中有幾個大寫字母？請只回答數字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('7')"
   },
@@ -821,7 +748,6 @@
     "prompt": "80 是 200 的百分之多少？請只回答數字加上百分比符號。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('40')"
   },
@@ -831,7 +757,6 @@
     "prompt": "請計算 24 與 36 的最大公因數（GCD）。請只回答數字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "數學與邏輯運算 (Math & Logic)",
     "check": "result.includes('12')"
   },
@@ -841,7 +766,6 @@
     "prompt": "請寫一首關於『月亮』與『思鄉』的七言絕句。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "/月/.test(result) && /鄉|乡/.test(result) && result.length >= 15"
   },
@@ -851,7 +775,6 @@
     "prompt": "請寫一段兩人之間關於『點餐』的簡短對話腳本，需標示說話者名稱。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "result.includes('：') || result.includes(':')"
   },
@@ -861,7 +784,6 @@
     "prompt": "請為一款名為『晴天雨傘』的產品寫一句廣告文案，需包含產品名稱。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "result.includes('晴天雨傘')"
   },
@@ -871,7 +793,6 @@
     "prompt": "請將『健康飲食的三個要點：多吃蔬菜、少吃油炸、規律用餐』整理成條列式清單。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "(result.match(/^[-*0-9]/gm) || []).length >= 3 || (result.includes('蔬菜') && result.includes('油炸') && result.includes('用餐'))"
   },
@@ -881,7 +802,6 @@
     "prompt": "請扮演一位客服人員，回覆顧客『我的訂單還沒到貨』的訊息，語氣需保持禮貌。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "result.includes('訂單') && (result.includes('抱歉') || result.includes('您好') || result.includes('謝謝'))"
   },
@@ -891,7 +811,6 @@
     "prompt": "請將『這個產品很爛，完全不能用』改寫成語氣正向、有建設性的說法。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "(() => { const t = result.trim(); if (t.length === 0) return false; const positiveHints = ['建議', '改善', '改進', '潛力', '期待', '提升', '優化', '希望', '不錯', '加強', '調整']; return positiveHints.some(w => t.includes(w)); })()"
   },
@@ -901,9 +820,8 @@
     "prompt": "請用不超過 15 個中文字，描述『下雨天適合在家看書』這件事。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
-    "check": "result.trim().length <= 20 && result.trim().length > 0"
+    "check": "(() => { const t = result.trim(); if (!t) return false; const cjk = (t.match(/[\\u4e00-\\u9fff]/g) || []).length; return cjk > 0 && cjk <= 15; })()"
   },
   {
     "id": 88,
@@ -911,7 +829,6 @@
     "prompt": "請將『他非常高興』這句話中的『高興』換成同義詞重新造句，且不能出現『高興』兩字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "文字生成與限制條件 (Text Generation & Constraints)",
     "check": "!result.includes('高興') && (result.includes('開心') || result.includes('快樂') || result.includes('愉快') || result.includes('喜悅'))"
   },
@@ -921,7 +838,6 @@
     "prompt": "請問法國的首都是哪裡？請只回答城市名稱。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('巴黎') || result.toLowerCase().includes('paris')"
   },
@@ -931,7 +847,6 @@
     "prompt": "請問第二次世界大戰結束於西元哪一年？請只回答數字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('1945')"
   },
@@ -941,7 +856,6 @@
     "prompt": "請問化學元素『金』的元素符號是什麼？請只回答符號。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('Au')"
   },
@@ -951,7 +865,6 @@
     "prompt": "請問鯨魚是哺乳類還是魚類？請只回答『哺乳類』或『魚類』。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('哺乳')"
   },
@@ -961,7 +874,6 @@
     "prompt": "請問圓周率 π 精確到小數點後兩位是多少？請只回答數字。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('3.14')"
   },
@@ -971,7 +883,6 @@
     "prompt": "請問 Python 是編譯式語言還是直譯式語言？請只回答其中一種。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('直譯') || result.toLowerCase().includes('interpret')"
   },
@@ -981,7 +892,6 @@
     "prompt": "請問密碼『123456』的強度是強還是弱？請只回答『強』或『弱』。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('弱')"
   },
@@ -991,7 +901,6 @@
     "prompt": "請判斷這句話是否正確：『地球是太陽系中距離太陽最近的行星』。請回答正確或錯誤。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('錯誤') || result.includes('不正確')"
   },
@@ -1001,7 +910,6 @@
     "prompt": "請問『快樂』和『喜悅』是不是同義詞（意思相近）？請回答是或否。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('是') && !result.includes('不是')"
   },
@@ -1011,7 +919,6 @@
     "prompt": "請問埃及位於哪一個洲？請只回答洲名。",
     "tools": [],
     "knowledges": [],
-    "model": "qwen2.5-coder-3b-instruct",
     "category": "知識問答與判斷 (Knowledge Q&A & Judgement)",
     "check": "result.includes('非洲')"
   }

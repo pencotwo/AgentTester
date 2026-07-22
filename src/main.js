@@ -85,7 +85,6 @@ const testDetailContent = document.getElementById('test-detail-content');
 const detailCaseName = document.getElementById('detail-case-name');
 const detailCasePrompt = document.getElementById('detail-case-prompt');
 const detailCaseTools = document.getElementById('detail-case-tools');
-const detailCaseModel = document.getElementById('detail-case-model');
 const detailCaseUrl = document.getElementById('detail-case-url');
 const detailCaseStatus = document.getElementById('detail-case-status');
 const detailCaseOutput = document.getElementById('detail-case-output');
@@ -786,7 +785,6 @@ function renderTestCasesList() {
         ${tc.category
           ? `<span class="test-meta-tag test-meta-category">${escapeHtml(tc.category)}</span>`
           : ''}
-        <span class="test-meta-tag test-meta-model">${escapeHtml(tc.model || 'Default Model')}</span>
         ${tc.tools && tc.tools.length > 0
           ? tc.tools.map(t => `<span class="test-meta-tag test-meta-tool">${escapeHtml(t)}</span>`).join('')
           : '<span class="test-meta-tag test-meta-tool-empty">No Tools</span>'}
@@ -834,7 +832,27 @@ function getFullResultText(tc) {
       }
     }
   }
-  return tc.resultText;
+  // FoxAgent's status API (`lastContentPreview`, i.e. tc.resultText) is capped at
+  // ~300 chars and wraps the answer in a "## 任務執行總結 ... ### 結論" summary.
+  // The just-finished step's `reply` in the fetched session is the real, complete,
+  // unwrapped answer -- prefer it whenever session data is available.
+  if (tc.sessionData && Array.isArray(tc.sessionData.steps) && tc.sessionData.steps.length) {
+    const lastStep = tc.sessionData.steps[tc.sessionData.steps.length - 1];
+    if (lastStep && typeof lastStep.reply === 'string' && lastStep.reply) {
+      return lastStep.reply;
+    }
+  }
+  return extractFinalAnswer(tc.resultText);
+}
+
+// Fallback for when session data isn't available: strip FoxAgent's
+// "## 任務執行總結 ... ### 結論" task-summary wrapper from the raw preview text,
+// keeping only what follows the last "### 結論" marker.
+function extractFinalAnswer(text) {
+  if (!text) return text;
+  const marker = '### 結論';
+  const idx = text.lastIndexOf(marker);
+  return idx === -1 ? text : text.slice(idx + marker.length).trim();
 }
 
 // Derive a test case's aggregate status/output fields (used by the list
@@ -924,18 +942,15 @@ function selectTestCase(idx) {
   detailCaseName.innerText = `[#${tc.id}] ${tc.name}`;
   detailCasePrompt.innerText = tc.prompt;
   detailCaseTools.innerText = tc.tools && tc.tools.length > 0 ? tc.tools.join(', ') : '(None)';
-  detailCaseModel.innerText = tc.model || '(Default Agent Model)';
 
   const agentId = agentSelect.value || '<agent_id>';
   const tempExecId = tc.execId || 'tc_temp';
   const toolsStr = tc.tools && tc.tools.length > 0 ? encodeURIComponent(tc.tools.join(',')) : '';
   const knowledgesStr = tc.knowledges && tc.knowledges.length > 0 ? encodeURIComponent(tc.knowledges.join(',')) : '';
-  const modelStr = tc.model ? encodeURIComponent(tc.model) : '';
   const messageStr = encodeURIComponent(tc.prompt);
   let requestUrl = `${apiBase()}/input?agent_id=${encodeURIComponent(agentId)}&action=run&exec_id=${tempExecId}`;
   if (toolsStr) requestUrl += `&tools=${toolsStr}`;
   if (knowledgesStr) requestUrl += `&knowledges=${knowledgesStr}`;
-  if (modelStr) requestUrl += `&model=${modelStr}`;
   if (messageStr) requestUrl += `&message=${messageStr}`;
 
   detailCaseUrl.innerText = requestUrl;
@@ -1166,26 +1181,47 @@ function pollUntilFinished(idx, modelKey, agentId, execId) {
           entry.resultText = detail.lastContentPreview || '';
           const isSuccessRun = detail.lastSuccess !== false;
 
-          // Store session metadata. Always include `exchanges`/`logs` so the
-          // check expression can safely call session.exchanges.some(...)
-          // even when no session file is ever produced for this run.
-          entry.sessionData = {
+          // Store session metadata. Always include `steps`/`messages`/`exchanges`/`logs`
+          // as arrays so check expressions can safely call e.g. session.steps.some(...)
+          // even when no session file is ever produced for this run, or the fetched
+          // session JSON is missing one of these fields.
+          const emptySessionData = {
             lastSessionUrl: detail.lastSessionUrl,
             lastSessionPath: detail.lastSessionPath,
             lastTokens: detail.lastTokens,
             lastRounds: detail.lastRounds,
+            steps: [],
+            messages: [],
             exchanges: [],
             logs: []
           };
+          entry.sessionData = emptySessionData;
 
-          // Attempt to load full session file to get exchanges & logs
+          // Attempt to load full session file to get steps/messages/logs
           if (detail.lastSessionUrl) {
             try {
               const fullSession = await invoke('fetch_url_json', {
                 url: resolveServerUrl(detail.lastSessionUrl)
               });
-              entry.sessionData = fullSession;
-              entry.logs = fullSession.logs || [];
+              // `fullSession` is FoxAgent's whole shared, ever-growing session file
+              // (all steps/messages for every test case run against this agent today —
+              // several MB and climbing). Only the step for *this* exec is relevant to
+              // checks/display, so keep just that slice; storing the full array in every
+              // test case's sessionData bloats memory and makes "Save Results" try to
+              // serialize hundreds of MB.
+              const allSteps = Array.isArray(fullSession.steps) ? fullSession.steps : [];
+              entry.sessionData = {
+                ...emptySessionData,
+                id: fullSession.id,
+                created_at: fullSession.created_at,
+                updated_at: fullSession.updated_at,
+                title: fullSession.title,
+                steps: allSteps.length ? [allSteps[allSteps.length - 1]] : [],
+                messages: [],
+                exchanges: fullSession.exchanges || [],
+                logs: fullSession.logs || []
+              };
+              entry.logs = entry.sessionData.logs;
             } catch (e) {
               console.error('Failed to load session details', e);
             }
